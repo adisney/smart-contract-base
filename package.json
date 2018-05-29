@@ -17,7 +17,8 @@
     "url": "https://github.com/adisney/smart-contract-base/issues"
   },
   "homepage": "https://github.com/adisney/smart-contract-base#readme",
-  "dependencies": {},
+  "dependencies": {
+  },
   "devDependencies": {
     "babel-polyfill": "6.26.0",
     "babel-preset-es2015": "^6.24.1",
