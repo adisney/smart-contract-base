@@ -1,41 +1,155 @@
+import assertRevert from './helpers/assertRevert';
 import decodeLogs from 'openzeppelin-solidity/test/helpers/decodeLogs';
+
 const SimpleToken = artifacts.require('SimpleToken');
+let token;
+let creator;
+let INITIAL_SUPPLY;
 
-contract('SimpleToken', accounts => {
-    let token;
-    const creator = accounts[0];
-
-    beforeEach(async function () {
+contract('SimpleToken', (accounts) => {
+    beforeEach(async () => {
+        creator = accounts[0];
         token = await SimpleToken.new({ from: creator });
+        INITIAL_SUPPLY = (await token.INITIAL_SUPPLY.call()).toNumber();
     });
 
-    it('has a name', async function () {
-        const name = await token.name();
-        assert.equal(name, 'SimpleToken');
+    describe("creation", async () => {
+        it('sets an initial balance of token.INITIAL_SUPPLY for the creator', async () => {
+            const balance = await token.balanceOf.call(creator);
+            assert.strictEqual(balance.toNumber(), INITIAL_SUPPLY);
+        });
+
+        it('sets name', async () => {
+            const name = await token.name.call();
+            assert.strictEqual(name, 'SimpleToken');
+        });
+
+        it('sets decimals', async () => {
+            const decimals = await token.decimals.call();
+            assert.strictEqual(decimals.toNumber(), 18);
+        });
+
+        it('sets symbol', async () => {
+            const symbol = await token.symbol.call();
+            assert.strictEqual(symbol, 'SIM');
+        });
     });
 
-    it('has a symbol', async function () {
-        const symbol = await token.symbol();
-        assert.equal(symbol, 'SIM');
+    describe("transfers", async () => {
+        // normal transfers without approvals
+        it('ether transfer should be reversed', async () => {
+            await assertRevert(new Promise((resolve, reject) => {
+                web3.eth.sendTransaction({ from: creator, to: token.address, value: web3.toWei('10', 'Ether') }, (err, res) => {
+                    if (err) { reject(err); }
+                    resolve(res);
+                });
+            }));
+
+            const balanceAfter = await token.balanceOf.call(creator);
+            assert.strictEqual(balanceAfter.toNumber(), INITIAL_SUPPLY);
+        });
+
+        it('should transfer 10000 to accounts[1] with creator having 10000', async () => {
+            await token.transfer(accounts[1], 10000, { from: creator });
+            const balance = await token.balanceOf.call(accounts[1]);
+            assert.strictEqual(balance.toNumber(), 10000);
+        });
+
+        it('should fail when trying to transfer send more tokens than available', async () => {
+            let txn_amount = 1e+23;
+            await assertRevert(token.transfer.call(accounts[1], txn_amount, { from: creator }));
+        });
+
+        it('should handle zero-transfers normally', async () => {
+            assert(await token.transfer.call(accounts[1], 0, { from: creator }), 'zero-transfer has failed');
+        });
     });
 
-    it('has 18 decimals', async function () {
-        const decimals = await token.decimals();
-        assert(decimals.eq(18));
+    describe("approvals", async () => {
+        it('can approve allowance', async () => {
+            await token.approve(accounts[1], 100, { from: creator });
+            const allowance = await token.allowance.call(creator, accounts[1]);
+            assert.strictEqual(allowance.toNumber(), 100);
+        });
+
+        it('can withdraw approved amount', async () => {
+            await token.approve(accounts[1], 100, { from: creator }); // 100
+            const balance2 = await token.balanceOf.call(accounts[2]);
+            assert.strictEqual(balance2.toNumber(), 0, 'balance2 not correct');
+
+            await token.transferFrom.call(creator, accounts[2], 20, { from: accounts[1] });
+            await token.allowance.call(creator, accounts[1]);
+            await token.transferFrom(creator, accounts[2], 20, { from: accounts[1] }); // -20
+            const allowance01 = await token.allowance.call(creator, accounts[1]);
+            assert.strictEqual(allowance01.toNumber(), 80); // =80
+
+            const balance22 = await token.balanceOf.call(accounts[2]);
+            assert.strictEqual(balance22.toNumber(), 20);
+
+            const balance02 = await token.balanceOf.call(creator);
+            assert.strictEqual(balance02.toNumber(), INITIAL_SUPPLY - 20);
+        });
+
+        // should approve 100 of msg.sender & withdraw 50 & 60 (should fail).
+        it('cannot withdraw more than allowance', async () => {
+            await token.approve(accounts[1], 100, { from: creator });
+            await token.transferFrom(creator, accounts[2], 50, { from: accounts[1] });
+            await assertRevert(token.transferFrom.call(creator, accounts[2], 60, { from: accounts[1] }));
+        });
+
+        it('cannot withdraw if no allowance', async () => {
+            await assertRevert(token.transferFrom.call(creator, accounts[2], 60, { from: accounts[1] }));
+        });
+
+        it('allow accounts[1] 100 to withdraw from creator', async () => {
+            await token.approve(accounts[1], 100, { from: creator });
+            await token.transferFrom(creator, accounts[2], 60, { from: accounts[1] });
+        });
+
+        it('updates allowance after withdrawal', async () => {
+            await token.approve(accounts[1], 100, { from: creator });
+            await token.transferFrom(creator, accounts[2], 60, { from: accounts[1] });
+            await token.approve(accounts[1], 0, { from: creator });
+            await assertRevert(token.transferFrom.call(creator, accounts[2], 10, { from: accounts[1] }));
+        });
+
+        it('approve max (2^256 - 1)', async () => {
+            await token.approve(accounts[1], '115792089237316195423570985008687907853269984665640564039457584007913129639935', { from: creator });
+            const allowance = await token.allowance(creator, accounts[1]);
+            assert(allowance.equals('1.15792089237316195423570985008687907853269984665640564039457584007913129639935e+77'));
+        });
     });
 
-    it('assigns the initial total supply to the creator', async function () {
-        const totalSupply = await token.totalSupply();
-        const creatorBalance = await token.balanceOf(creator);
+    describe("events", async () => {
+        it('should fire Transfer event for initial creation', async () => {
+            const receipt = web3.eth.getTransactionReceipt(token.transactionHash);
+            const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
+            assert.equal(logs[0].event, 'Transfer');
+            assert.equal(logs[0].args.from.valueOf(), 0x0);
+            assert.equal(logs[0].args.to.valueOf(), accounts[0]);
+            assert(logs[0].args.value.eq(INITIAL_SUPPLY));
+        });
 
-        assert(creatorBalance.eq(totalSupply));
+        it('should fire Transfer event properly', async () => {
+            const res = await token.transfer(accounts[1], '2666', { from: creator });
+            const receipt = web3.eth.getTransactionReceipt(res.receipt.transactionHash);
+            const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
+            const log = logs[0];
+            assert.equal(log.event, 'Transfer');
+            assert.equal(log.args.from.valueOf(), creator);
+            assert.equal(log.args.to.valueOf(), accounts[1]);
+            assert(log.args.value.eq(2666));
+        });
 
-        const receipt = web3.eth.getTransactionReceipt(token.transactionHash);
-        const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
-        assert.equal(logs.length, 1);
-        assert.equal(logs[0].event, 'Transfer');
-        assert.equal(logs[0].args.from.valueOf(), 0x0);
-        assert.equal(logs[0].args.to.valueOf(), creator);
-        assert(logs[0].args.value.eq(totalSupply));
+        it('should fire Approval event properly', async () => {
+            const res = await token.approve(accounts[1], '2666', { from: creator });
+            const receipt = web3.eth.getTransactionReceipt(res.receipt.transactionHash);
+            const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
+            const log = logs[0];
+            assert.equal(log.event, 'Approval');
+            assert.strictEqual(log.args.owner.valueOf(), creator);
+            assert.strictEqual(log.args.spender.valueOf(), accounts[1]);
+            assert.strictEqual(log.args.value.valueOf().toString(), '2666');
+        });
     });
 });
