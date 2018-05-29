@@ -22,7 +22,7 @@ runTestsOnce() {
     runTests
 }
 runTestsContinuous() {
-    find ./ -type d -name node_modules -prune -o \( -name *.sol -o -name *.js -o -name *.*.js \) | entr -cdr bash -c "echo \"Running tests...\"; runTests"
+    find ./ -type d -name node_modules -prune -o \( -name '*.sol' -o -name '*.js' -o -name '*.*.js' \) | entr -cdr bash -c "echo \"Running tests...\"; runTests"
 }
 export -f cleanup
 export -f runTests
