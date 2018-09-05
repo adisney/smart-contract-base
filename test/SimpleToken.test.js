@@ -2,7 +2,6 @@ import assertRevert from './helpers/assertRevert';
 import decodeLogs from 'openzeppelin-solidity/test/helpers/decodeLogs';
 
 const SimpleToken = artifacts.require('SimpleToken');
-const BasicTokenMock = artifacts.require('BasicTokenMock');
 let token;
 let creator;
 let INITIAL_SUPPLY;
