@@ -2,6 +2,7 @@ import assertRevert from './helpers/assertRevert';
 import decodeLogs from 'openzeppelin-solidity/test/helpers/decodeLogs';
 
 const SimpleToken = artifacts.require('SimpleToken');
+const BasicTokenMock = artifacts.require('BasicTokenMock');
 let token;
 let creator;
 let INITIAL_SUPPLY;
@@ -126,33 +127,35 @@ contract('SimpleToken', (accounts) => {
 
     describe("events", async () => {
         it('should fire Transfer event for initial creation', async () => {
-            const receipt = web3.eth.getTransactionReceipt(token.transactionHash);
+            const receipt = await web3.eth.getTransactionReceipt(token.transactionHash);
             const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
             assert.equal(logs[0].event, 'Transfer');
             assert.equal(logs[0].args.from.valueOf(), 0x0);
-            assert.equal(logs[0].args.to.valueOf(), accounts[0]);
+            console.log(accounts[0])
+            assert.equal(web3.utils.toChecksumAddress(logs[0].args.to.valueOf()), accounts[0]);
             assert(logs[0].args.value.eq(INITIAL_SUPPLY));
         });
 
         it('should fire Transfer event properly', async () => {
             const res = await token.transfer(accounts[1], '2666', { from: creator });
-            const receipt = web3.eth.getTransactionReceipt(res.receipt.transactionHash);
+            const receipt = await web3.eth.getTransactionReceipt(res.receipt.transactionHash);
             const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
             const log = logs[0];
             assert.equal(log.event, 'Transfer');
-            assert.equal(log.args.from.valueOf(), creator);
-            assert.equal(log.args.to.valueOf(), accounts[1]);
+            assert.equal(web3.utils.toChecksumAddress(log.args.from.valueOf()), creator);
+            assert.equal(web3.utils.toChecksumAddress(log.args.to.valueOf()), accounts[1]);
             assert(log.args.value.eq(2666));
         });
 
         it('should fire Approval event properly', async () => {
             const res = await token.approve(accounts[1], '2666', { from: creator });
-            const receipt = web3.eth.getTransactionReceipt(res.receipt.transactionHash);
+            const receipt = await web3.eth.getTransactionReceipt(res.receipt.transactionHash);
             const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
             const log = logs[0];
             assert.equal(log.event, 'Approval');
-            assert.strictEqual(log.args.owner.valueOf(), creator);
-            assert.strictEqual(log.args.spender.valueOf(), accounts[1]);
+            assert.strictEqual(web3.utils.toChecksumAddress(log.args.owner.valueOf()), creator);
+            console.log(accounts[1])
+            assert.strictEqual(web3.utils.toChecksumAddress(log.args.spender.valueOf()), accounts[1]);
             assert.strictEqual(log.args.value.valueOf().toString(), '2666');
         });
     });
