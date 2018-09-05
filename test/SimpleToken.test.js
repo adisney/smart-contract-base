@@ -10,13 +10,13 @@ contract('SimpleToken', (accounts) => {
     beforeEach(async () => {
         creator = accounts[0];
         token = await SimpleToken.new({ from: creator });
-        INITIAL_SUPPLY = (await token.INITIAL_SUPPLY.call()).toNumber();
+        INITIAL_SUPPLY = (await token.INITIAL_SUPPLY.call());
     });
 
     describe("creation", async () => {
         it('sets an initial balance of token.INITIAL_SUPPLY for the creator', async () => {
             const balance = await token.balanceOf.call(creator);
-            assert.strictEqual(balance.toNumber(), INITIAL_SUPPLY);
+            assert.strictEqual(balance.toString(), INITIAL_SUPPLY.toString());
         });
 
         it('sets name', async () => {
@@ -26,7 +26,7 @@ contract('SimpleToken', (accounts) => {
 
         it('sets decimals', async () => {
             const decimals = await token.decimals.call();
-            assert.strictEqual(decimals.toNumber(), 18);
+            assert.strictEqual(parseInt(decimals), 18);
         });
 
         it('sets symbol', async () => {
@@ -39,24 +39,24 @@ contract('SimpleToken', (accounts) => {
         // normal transfers without approvals
         it('ether transfer should be reversed', async () => {
             await assertRevert(new Promise((resolve, reject) => {
-                web3.eth.sendTransaction({ from: creator, to: token.address, value: web3.toWei('10', 'Ether') }, (err, res) => {
+                web3.eth.sendTransaction({ from: creator, to: token.address, value: web3.utils.toWei('10', 'Ether') }, (err, res) => {
                     if (err) { reject(err); }
                     resolve(res);
                 });
             }));
 
             const balanceAfter = await token.balanceOf.call(creator);
-            assert.strictEqual(balanceAfter.toNumber(), INITIAL_SUPPLY);
+            assert.strictEqual(balanceAfter.toString(), INITIAL_SUPPLY.toString());
         });
 
         it('should transfer 10000 to accounts[1] with creator having 10000', async () => {
             await token.transfer(accounts[1], 10000, { from: creator });
             const balance = await token.balanceOf.call(accounts[1]);
-            assert.strictEqual(balance.toNumber(), 10000);
+            assert.strictEqual(parseInt(balance), 10000);
         });
 
         it('should fail when trying to transfer send more tokens than available', async () => {
-            let txn_amount = 1e+23;
+            let txn_amount = web3.utils.toBN("100000000000000000000000");
             await assertRevert(token.transfer.call(accounts[1], txn_amount, { from: creator }));
         });
 
@@ -69,25 +69,25 @@ contract('SimpleToken', (accounts) => {
         it('can approve allowance', async () => {
             await token.approve(accounts[1], 100, { from: creator });
             const allowance = await token.allowance.call(creator, accounts[1]);
-            assert.strictEqual(allowance.toNumber(), 100);
+            assert.strictEqual(parseInt(allowance), 100);
         });
 
         it('can withdraw approved amount', async () => {
             await token.approve(accounts[1], 100, { from: creator }); // 100
             const balance2 = await token.balanceOf.call(accounts[2]);
-            assert.strictEqual(balance2.toNumber(), 0, 'balance2 not correct');
+            assert.strictEqual(parseInt(balance2), 0, 'balance2 not correct');
 
             await token.transferFrom.call(creator, accounts[2], 20, { from: accounts[1] });
             await token.allowance.call(creator, accounts[1]);
             await token.transferFrom(creator, accounts[2], 20, { from: accounts[1] }); // -20
             const allowance01 = await token.allowance.call(creator, accounts[1]);
-            assert.strictEqual(allowance01.toNumber(), 80); // =80
+            assert.strictEqual(parseInt(allowance01), 80); // =80
 
             const balance22 = await token.balanceOf.call(accounts[2]);
-            assert.strictEqual(balance22.toNumber(), 20);
+            assert.strictEqual(parseInt(balance22), 20);
 
             const balance02 = await token.balanceOf.call(creator);
-            assert.strictEqual(balance02.toNumber(), INITIAL_SUPPLY - 20);
+            assert.strictEqual(parseInt(balance02), INITIAL_SUPPLY - 20);
         });
 
         // should approve 100 of msg.sender & withdraw 50 & 60 (should fail).
@@ -114,9 +114,13 @@ contract('SimpleToken', (accounts) => {
         });
 
         it('approve max (2^256 - 1)', async () => {
+            // Dealing with multiple, incompatible implementations of BigNumber here.
+            // Looks a bit funny.
+            const maxMinusOneString = '115792089237316195423570985008687907853269984665640564039457584007913129639935'
             await token.approve(accounts[1], '115792089237316195423570985008687907853269984665640564039457584007913129639935', { from: creator });
             const allowance = await token.allowance(creator, accounts[1]);
-            assert(allowance.equals('1.15792089237316195423570985008687907853269984665640564039457584007913129639935e+77'));
+            const allowanceString = web3.utils.toBN(allowance).toString();
+            assert.strictEqual(allowanceString, web3.utils.toBN(maxMinusOneString).toString())
         });
     });
 
