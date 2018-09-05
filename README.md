@@ -102,3 +102,12 @@ export WALLET_MNEMONIC="this is a wallet mnemonic phrase"
 export INFURA_TOKEN="your_API_key"
 npm run deploy
 ```
+
+### Deploying Multiple Times
+
+When testing, you will likely want to deploy the same contract more than once. Truffle is designed such that once you've deployed a contract, it will not deploy the same contracts multiple times. That can be inconvenient if you're testing the deployment process itself.
+
+Thankfully, Truffle can take a flag that will redeploy a previously deployed contract. If you'd like to run the deploy script with the reset flag, execute the following:
+```
+npm run reset_deploy
+```
