@@ -130,7 +130,6 @@ contract('SimpleToken', (accounts) => {
             const logs = decodeLogs(receipt.logs, SimpleToken, token.address);
             assert.equal(logs[0].event, 'Transfer');
             assert.equal(logs[0].args.from.valueOf(), 0x0);
-            console.log(accounts[0])
             assert.equal(web3.utils.toChecksumAddress(logs[0].args.to.valueOf()), accounts[0]);
             assert(logs[0].args.value.eq(INITIAL_SUPPLY));
         });
@@ -153,7 +152,6 @@ contract('SimpleToken', (accounts) => {
             const log = logs[0];
             assert.equal(log.event, 'Approval');
             assert.strictEqual(web3.utils.toChecksumAddress(log.args.owner.valueOf()), creator);
-            console.log(accounts[1])
             assert.strictEqual(web3.utils.toChecksumAddress(log.args.spender.valueOf()), accounts[1]);
             assert.strictEqual(log.args.value.valueOf().toString(), '2666');
         });
