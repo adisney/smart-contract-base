@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+export abspath="$(cd "${0%/*}" 2>/dev/null; echo "$PWD"/"${0##*/}")"
+export bin_dir=`dirname $abspath`
+export root_dir=`dirname $bin_dir`
 
 # Executes cleanup function at script exit.
 trap cleanup EXIT

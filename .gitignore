@@ -1,2 +1,4 @@
 ganache.log
 node_modules
+build
+contract_deployment.log
