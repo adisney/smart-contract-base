@@ -14,8 +14,13 @@ error() {
 
 deploy() {
     echo "truffle migrate --network $NETWORK" > ./contract_deployment.log
-    truffle migrate --network $NETWORK | tee -a ./contract_deployment.log
+    truffle migrate $RESET --network $NETWORK | tee -a ./contract_deployment.log
 }
+
+RESET=""
+if [[ -z $1 && $1 == "--reset" ]]; then
+    RESET="--reset"
+fi
 
 if [ -z "$WALLET_MNEMONIC" ]; then
     error "Must set \$WALLET_MNEMONIC to mnemonic phrase containing Ether to be used in deployment"

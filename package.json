@@ -6,7 +6,8 @@
   "scripts": {
     "test": "./bin/solidity_tests.sh",
     "ct": "./bin/solidity_tests.sh --continuous",
-    "deploy": "./bin/deploy.sh"
+    "deploy": "./bin/deploy.sh",
+    "reset_deploy": "./bin/deploy.sh --reset"
   },
   "repository": {
     "type": "git",
